@@ -40,35 +40,36 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         textView = this.findViewById((R.id.msg_view));
         imageView = this.findViewById(R.id.imageView);
-        this.findViewById(R.id.button).setOnClickListener( v -> {
-            Request request = new Request.Builder()
-                    .url(url)
-                    .get()
-                    .build();
-            Call call = client.newCall(request);
-            this.textView.setText( "Finding...." );
-            HttpJsonObservable(call,Photo.class)
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe( t ->{
-                        this.textView.setText(t.alt_description);
-                        Request photoRequest = new Request.Builder()
-                                .url(t.urls.small)
-                                .get()
-                                .build();
-                        Call photoCall = client.newCall(photoRequest);
-                        this.HttpStreamObservable(photoCall)
-                                .observeOn( AndroidSchedulers.mainThread())
-                                .subscribe( s-> {
-                                    Bitmap bitmap = BitmapFactory.decodeStream(s);
-                                    s.close();
-                                    imageView.setImageBitmap(bitmap);
-                                },
-                                e -> textView.setText( e.getMessage() )
-                                );
-                    },
-                error -> this.textView.setText(error.getMessage())
-            );
-        } );
+        this.findViewById(R.id.button).setOnClickListener( v -> GetRandomPhoto());
+    }
+
+    private void GetRandomPhoto()
+    {
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .build();
+        Call call = client.newCall(request);
+        this.textView.setText( "Finding...." );
+        HttpJsonObservable(call,Photo.class)
+                .observeOn(AndroidSchedulers.mainThread())
+                .flatMap( t-> {
+                    this.textView.setText(t.alt_description);
+                    Request photoRequest = new Request.Builder()
+                            .url(t.urls.small)
+                            .get()
+                            .build();
+                    Call photoCall = client.newCall(photoRequest);
+                    return this.HttpStreamObservable(photoCall);
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe( s-> {
+                            Bitmap bitmap = BitmapFactory.decodeStream(s);
+                            s.close();
+                            imageView.setImageBitmap(bitmap);
+                        },
+                        e -> textView.setText( e.getMessage() )
+                );
     }
 
     private  Single<InputStream> HttpStreamObservable(Call call )
