@@ -16,9 +16,12 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
+import java.util.List;
 
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
 import okhttp3.Call;
@@ -70,6 +73,47 @@ public class MainActivity extends AppCompatActivity {
                         },
                         e -> textView.setText( e.getMessage() )
                 );
+    }
+
+    private void FakePhotoProcess( )
+    {
+        List<String> input = Arrays.asList("photo1","photo2","photo3");
+        Observable.just( input )
+        .flatMap(ids -> {
+            Observable<String> ret = Observable.fromIterable(ids);
+            return  ret;
+        })
+        .flatMap(id -> {
+            Request request = new Request.Builder()
+                    .url(String.format( url , id ))
+                    .get()
+                    .build();
+            Call call = client.newCall(request);
+            Observable<Photo> ret =  Observable.fromSingle( HttpJsonObservable(call,Photo.class) );
+            return ret;
+        })
+        .subscribe(photo ->{
+            System.out.println(photo.alt_description);});
+    }
+
+    private void FakeProcessFlow( Flowable<Photo> photoFlowable ){
+        photoFlowable.flatMap( t-> {
+            this.textView.setText(t.alt_description);
+            Request photoRequest = new Request.Builder()
+                    .url(t.urls.small)
+                    .get()
+                    .build();
+            Call photoCall = client.newCall(photoRequest);
+            return Flowable.fromSingle (this.HttpStreamObservable(photoCall) );
+        })
+        .observeOn(AndroidSchedulers.mainThread())
+        .subscribe( s-> {
+                    Bitmap bitmap = BitmapFactory.decodeStream(s);
+                    s.close();
+                    imageView.setImageBitmap(bitmap);
+                },
+                e -> textView.setText( e.getMessage() )
+        );
     }
 
     private  Single<InputStream> HttpStreamObservable(Call call )
